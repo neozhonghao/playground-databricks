@@ -1,0 +1,3 @@
+{"event_id":"e001","event_time":"2024-03-01T08:12:34Z","user":{"id":"u1","country":"SGP"},"items":[{"sku":"SKU-A","quantity":2,"price":49.99},{"sku":"SKU-B","quantity":1,"price":19.99}]}
+{"event_id":"e002","event_time":"2024-03-01T09:05:11Z","user":{"id":"u2","country":"AUS"},"items":[{"sku":"SKU-C","quantity":1,"price":99.00}]}
+{"event_id":"e003","event_time":"2024-03-02T14:22:00Z","user":{"id":"u1","country":"SGP"},"items":[{"sku":"SKU-A","quantity":1,"price":49.99}]}

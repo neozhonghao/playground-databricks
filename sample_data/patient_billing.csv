@@ -1,0 +1,11 @@
+billing_id,patient_id,department,billing_date,amount_billed,quantity
+401,p001,Cardiology,2024-03-01,1500.00,1
+402,p002,Radiology,2024-03-02,3000.00,1
+403,p001,Cardiology,2024-03-01,6500.00,1
+404,p003,Radiology,2024-03-03,500.00,1
+405,p004,Neurology,2024-03-04,2200.00,2
+406,p002,Cardiology,2024-03-05,1800.00,1
+407,p005,Radiology,2024-03-05,4500.00,1
+408,p001,Neurology,2024-03-06,900.00,1
+409,p003,Cardiology,2024-03-07,3200.00,1
+410,p005,Cardiology,2024-03-08,1100.00,1

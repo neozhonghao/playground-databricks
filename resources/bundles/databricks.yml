@@ -1,0 +1,134 @@
+bundle:
+  name: playground_databricks
+
+# Variable definitions — overridden per target below
+variables:
+  catalog:
+    description: Target catalog name
+    default: main
+  env:
+    description: Deployment environment
+    default: dev
+  schedule_cron:
+    description: Cron expression for the daily job
+    default: "0 0 8 * * ?"   # 08:00 daily (Singapore time)
+
+# Environment-specific overrides
+targets:
+  dev:
+    mode: development    # prefixes all resources with the deploying user's name
+    default: true
+    workspace:
+      host: https://adb-xxxx-dev.azuredatabricks.net   # replace with your workspace URL
+    variables:
+      catalog: dev_catalog
+      env: dev
+      schedule_cron: "0 0 * * * ?"   # hourly in dev
+
+  test:
+    workspace:
+      host: https://adb-xxxx-test.azuredatabricks.net
+    variables:
+      catalog: test_catalog
+      env: test
+
+  prod:
+    mode: production
+    workspace:
+      host: https://adb-xxxx-prod.azuredatabricks.net
+    variables:
+      catalog: main
+      env: prod
+      schedule_cron: "0 0 6 * * ?"   # 06:00 in prod
+    run_as:
+      service_principal_name: sp-billing-pipeline-prod
+
+# Include separate resource YAML files
+include:
+  - jobs.yml
+  - pipelines.yml
+
+---
+# jobs.yml (inline for demo; in practice, put in resources/bundles/jobs.yml)
+resources:
+  jobs:
+    billing_pipeline_job:
+      name: "[${var.env}] Billing Pipeline"
+      description: "Ingests and transforms patient billing data through the medallion layers"
+
+      schedule:
+        quartz_cron_expression: "${var.schedule_cron}"
+        timezone_id: "Asia/Singapore"
+        pause_status: UNPAUSED
+
+      max_concurrent_runs: 1
+
+      email_notifications:
+        on_failure:
+          - data-eng-alerts@example.com
+
+      tasks:
+        - task_key: ingest_bronze
+          description: "Load raw CSV/JSON into bronze Delta tables"
+          notebook_task:
+            notebook_path: ../../02_ingestion/02_autoloader.py
+            base_parameters:
+              catalog: "${var.catalog}"
+              env: "${var.env}"
+          job_cluster_key: pipeline_cluster
+          max_retries: 2
+          min_retry_interval_millis: 60000
+
+        - task_key: transform_silver
+          description: "Clean and validate bronze → silver"
+          depends_on:
+            - task_key: ingest_bronze
+          notebook_task:
+            notebook_path: ../../03_transformation/01_medallion_architecture.py
+            base_parameters:
+              catalog: "${var.catalog}"
+          job_cluster_key: pipeline_cluster
+          max_retries: 1
+
+        - task_key: quality_gate
+          description: "Check that silver row count > 0"
+          depends_on:
+            - task_key: transform_silver
+          condition_task:
+            op: GREATER_THAN
+            left: "{{tasks.transform_silver.values.silver_row_count}}"
+            right: "0"
+
+        - task_key: build_gold
+          description: "Build gold aggregation tables"
+          depends_on:
+            - task_key: quality_gate
+              outcome: "true"
+          notebook_task:
+            notebook_path: ../../03_transformation/01_medallion_architecture.py
+            base_parameters:
+              catalog: "${var.catalog}"
+              layer: gold
+          job_cluster_key: pipeline_cluster
+
+        - task_key: alert_empty_load
+          description: "Alert if no rows were loaded (quality gate false)"
+          depends_on:
+            - task_key: quality_gate
+              outcome: "false"
+          notebook_task:
+            notebook_path: ../../04_lakeflow_jobs/01_jobs_orchestration.py
+            base_parameters:
+              message: "Silver table is empty after ingest — investigate source"
+          job_cluster_key: pipeline_cluster
+
+      job_clusters:
+        - job_cluster_key: pipeline_cluster
+          new_cluster:
+            spark_version: "15.4.x-scala2.12"
+            node_type_id: Standard_DS3_v2   # Azure; use i3.xlarge for AWS
+            num_workers: 2
+            spark_conf:
+              spark.sql.shuffle.partitions: "50"
+              spark.sql.adaptive.enabled: "true"
+            data_security_mode: SINGLE_USER
