@@ -317,3 +317,4 @@ print("Cleanup complete.")
 # MAGIC - Add a Silver layer transformation (dedup, type casting, business rules)
 # MAGIC - Build a Gold aggregation (e.g., daily revenue by product)
 # MAGIC - Wire up DLT (Delta Live Tables) to orchestrate the full pipeline
+

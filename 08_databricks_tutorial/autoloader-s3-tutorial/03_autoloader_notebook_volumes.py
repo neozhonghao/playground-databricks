@@ -273,3 +273,4 @@ print("Cleanup complete.")
 # MAGIC | **Sink** | Delta table via `.toTable()` |
 # MAGIC | **Trigger** | `availableNow=True` (batch) |
 # MAGIC | **Audit** | `source_file` column — tracks which file each row came from |
+
